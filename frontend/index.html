@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Samanvaya – Interoperability Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181c24;
+    --border: #1f2535;
+    --border2: #2a3248;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --accent-blue: #3b82f6;
+    --accent-cyan: #06b6d4;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --purple: #a855f7;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --font-sans: 'DM Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-sans); min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px; opacity: 0.3; pointer-events: none; z-index: 0;
+  }
+  .shell { position: relative; z-index: 1; display: flex; height: 100vh; }
+
+  /* ── Sidebar ── */
+  .sidebar { width: 220px; min-width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+  .sidebar-logo { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo .wordmark { font-family: var(--font-mono); font-size: 13px; font-weight: 600; letter-spacing: 0.15em; color: var(--accent-cyan); text-transform: uppercase; }
+  .sidebar-logo .tagline { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .nav-section-label { font-size: 9px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); padding: 16px 20px 6px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; cursor: pointer; font-size: 13px; color: var(--muted); transition: all 0.15s; border-left: 2px solid transparent; user-select: none; }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--accent-cyan); border-left-color: var(--accent-cyan); background: rgba(6,182,212,0.06); }
+  .nav-icon { font-size: 15px; }
+
+  /* ── Main ── */
+  .main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 28px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 10; }
+  .topbar-title { font-size: 14px; font-weight: 600; }
+  .topbar-meta { font-size: 11px; color: var(--muted); font-family: var(--font-mono); display: flex; align-items: center; gap: 12px; }
+  .live-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .content { padding: 24px 28px; flex: 1; }
+
+  /* ── Cards ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .card-title { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+  /* ── Stats ── */
+  .stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; position: relative; overflow: hidden; }
+  .stat-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .stat-card.blue::after { background: var(--accent-blue); }
+  .stat-card.green::after { background: var(--green); }
+  .stat-card.red::after { background: var(--red); }
+  .stat-card.yellow::after { background: var(--yellow); }
+  .stat-card.cyan::after { background: var(--accent-cyan); }
+  .stat-card.purple::after { background: var(--purple); }
+  .stat-label { font-size: 10px; color: var(--muted); font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+  .stat-value { font-size: 24px; font-weight: 700; font-family: var(--font-mono); margin-top: 6px; }
+  .stat-sub { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+  /* ── Badges ── */
+  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; }
+  .badge-blue { background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
+  .badge-green { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+  .badge-red { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+  .badge-yellow { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
+  .badge-cyan { background: rgba(6,182,212,0.12); color: #22d3ee; border: 1px solid rgba(6,182,212,0.2); }
+  .badge-purple { background: rgba(168,85,247,0.12); color: #c084fc; border: 1px solid rgba(168,85,247,0.2); }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; padding: 8px 12px; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .truncate { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Timeline ── */
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+  .timeline-item { display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .timeline-item:last-child { border-bottom: none; }
+  .tl-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .tl-dot.success { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+  .tl-dot.failed { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+  .tl-dot.conflict { background: rgba(245,158,11,0.15); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3); }
+  .tl-body { flex: 1; }
+  .tl-title { font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tl-sub { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: var(--font-mono); }
+  .tl-time { font-size: 10px; color: var(--muted); font-family: var(--font-mono); white-space: nowrap; }
+  .flow-line { display: inline-flex; align-items: center; gap: 6px; }
+  .flow-sys { font-family: var(--font-mono); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
+  .flow-sys.sws { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .flow-sys.fds { background: rgba(6,182,212,0.15); color: #22d3ee; }
+  .flow-arrow { color: var(--muted); }
+
+  /* ── Compare ── */
+  .compare-grid { display: flex; flex-direction: column; gap: 16px; }
+  .compare-row { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .compare-row-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--surface2); border-bottom: 1px solid var(--border); }
+  .compare-ubid { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+  .compare-body { display: grid; grid-template-columns: 1fr 1fr; }
+  .compare-col { padding: 16px; }
+  .compare-col.sws { border-right: 1px solid var(--border); }
+  .compare-col-header { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 12px; color: var(--muted); }
+  .compare-col.sws .compare-col-header { color: #60a5fa; }
+  .compare-col.fds .compare-col-header { color: #22d3ee; }
+  .field-row { margin-bottom: 10px; }
+  .field-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+  .field-value { font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); font-family: var(--font-sans); }
+  /* ✅ GREEN = values match, RED = mismatch */
+  .field-value.match { border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.06); color: #4ade80; }
+  .field-value.diff  { border-color: rgba(239,68,68,0.4);  background: rgba(239,68,68,0.06);  color: #f87171; }
+
+  /* ── Forms ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 11px; color: var(--muted); font-weight: 500; letter-spacing: 0.04em; }
+  input, select { background: var(--surface2); border: 1px solid var(--border2); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 13px; font-family: var(--font-sans); outline: none; transition: border-color 0.15s; }
+  input:focus, select:focus { border-color: var(--accent-cyan); }
+  .btn { padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; font-family: var(--font-sans); }
+  .btn-primary { background: var(--accent-cyan); color: #000; }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border2); }
+  .btn-secondary:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Section header ── */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .section-title { font-size: 16px; font-weight: 700; }
+  .section-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* ── Misc ── */
+  .loading { display: flex; align-items: center; gap: 12px; color: var(--muted); padding: 40px; justify-content: center; }
+  .spinner { width: 18px; height: 18px; border: 2px solid var(--border2); border-top-color: var(--accent-cyan); border-radius: 50%; animation: spin 0.6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty { text-align: center; color: var(--muted); padding: 40px; font-size: 13px; }
+  .toast { position: fixed; bottom: 24px; right: 24px; z-index: 999; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; animation: slideIn 0.2s ease; }
+  .toast.success { background: rgba(34,197,94,0.9); color: #000; }
+  .toast.error { background: rgba(239,68,68,0.9); color: #fff; }
+  @keyframes slideIn { from { transform: translateY(20px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+  .resp-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 14px; font-family: var(--font-mono); font-size: 11px; white-space: pre-wrap; word-break: break-all; color: var(--text); max-height: 260px; overflow-y: auto; margin-top: 12px; }
+  .resp-box.ok { border-color: rgba(34,197,94,0.3); }
+  .resp-box.err { border-color: rgba(239,68,68,0.3); color: var(--red); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+<!-- ── Sidebar ── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="wordmark">SAMANVAYA</div>
+    <div class="tagline">Gov Interoperability Layer v2</div>
+  </div>
+
+  <div class="nav-section-label">Overview</div>
+  <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">⬡</span> Dashboard</div>
+  <div class="nav-item" onclick="showPage('compare')"><span class="nav-icon">⇔</span> Compare</div>
+
+  <div class="nav-section-label">Systems</div>
+  <div class="nav-item" onclick="showPage('sws')"><span class="nav-icon">◈</span> SWS Records</div>
+  <div class="nav-item" onclick="showPage('fds')"><span class="nav-icon">◉</span> FDS Records</div>
+
+  <div class="nav-section-label">Monitoring</div>
+  <div class="nav-item" onclick="showPage('audit')"><span class="nav-icon">≡</span> Audit Timeline</div>
+  <div class="nav-item" onclick="showPage('conflicts')"><span class="nav-icon">⚠</span> Conflict Viewer</div>
+
+  <div class="nav-section-label">Tools</div>
+  <div class="nav-item" onclick="showPage('tester')"><span class="nav-icon">▷</span> API Tester</div>
+</aside>
+
+<!-- ── Main ── -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="page-title">Dashboard</div>
+    <div class="topbar-meta">
+      <span><span class="live-dot"></span> Live</span>
+      <span>API: <strong>localhost:8000</strong></span>
+      <span id="clock"></span>
+    </div>
+  </div>
+  <div class="content" id="content"></div>
+</main>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let pollingTimer = null;
+let currentPage = 'dashboard';
+
+// ── Clock ──────────────────────────────────────────────────────────────────
+setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-IN'); }, 1000);
+
+// ── Nav ────────────────────────────────────────────────────────────────────
+function showPage(name) {
+  clearInterval(pollingTimer);
+  currentPage = name;
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', (el.getAttribute('onclick') || '').includes(`'${name}'`));
+  });
+  const titles = { dashboard:'Dashboard', compare:'Side-by-Side Comparison', sws:'SWS Records', fds:'FDS Records', audit:'Audit Timeline', conflicts:'Conflict Viewer', tester:'API Tester' };
+  document.getElementById('page-title').textContent = titles[name] || name;
+  const pages = { dashboard, compare, sws, fds, audit, conflicts, tester };
+  pages[name]?.();
+}
+
+// ── API helpers ────────────────────────────────────────────────────────────
+async function apiFetch(path, opts = {}) {
+  try {
+    const res = await fetch(API + path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+    const data = await res.json();
+    if (!res.ok) throw { status: res.status, data };
+    return { ok: true, data, status: res.status };
+  } catch(e) {
+    return { ok: false, data: e.data || { detail: e.message }, status: e.status || 0 };
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function shortUbid(u) { return u ? u.split('-')[0] + '…' : '—'; }
+function fmtTime(t) {
+  if (!t) return '—';
+  const d = new Date(t);
+  return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short' }) + ' ' + d.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+}
+function badge(text, type) { return `<span class="badge badge-${type}">${text}</span>`; }
+function syncBadge(s) {
+  if (s === 'synced')      return badge('● Synced', 'green');
+  if (s === 'out_of_sync') return badge('● Out of Sync', 'red');
+  if (s === 'partial')     return badge('◐ Partial', 'yellow');
+  return badge('— Missing', 'blue');
+}
+function statusBadge(s) {
+  if (s === 'success') return badge('✓ success', 'green');
+  if (s === 'failed')  return badge('✗ failed', 'red');
+  return badge('⊙ ' + s, 'yellow');
+}
+function render(html) { document.getElementById('content').innerHTML = html; }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAGE: Dashboard — polling every 5s
+// ═══════════════════════════════════════════════════════════════════════════
+async function dashboard() {
+  render(`<div class="loading"><div class="spinner"></div>Loading stats…</div>`);
+  await _renderDashboard();
+  pollingTimer = setInterval(_renderDashboard, 5000);
+}
+
+async function _renderDashboard() {
+  const [statsR, auditR] = await Promise.all([
+    apiFetch('/stats'),
+    apiFetch('/audit?limit=5'),
+  ]);
+  const stats = statsR.data || {};
+  const recentAudit = auditR.data || [];
+
+  const statCards = [
+    { label:'SWS Records',        value: stats.total_sws_records        ?? 0, sub:'Single Window System',     color:'blue'   },
+    { label:'FDS Records',        value: stats.total_fds_records         ?? 0, sub:'Factories Dept. System',   color:'cyan'   },
+    { label:'Synced UBIDs',       value: stats.synced_ubids              ?? 0, sub:'Fully in sync',            color:'green'  },
+    { label:'Out of Sync',        value: stats.out_of_sync_ubids         ?? 0, sub:'Needs propagation',        color:'red'    },
+    { label:'Total Propagations', value: stats.total_audit_entries       ?? 0, sub:'Audit entries',            color:'purple' },
+    { label:'Conflicts',          value: stats.total_conflicts            ?? 0, sub:'Detected & resolved',      color:'yellow' },
+  ];
+
+  let html = `<div class="stats-grid">` +
+    statCards.map(s => `
+      <div class="stat-card ${s.color}">
+        <div class="stat-label">${s.label}</div>
+        <div class="stat-value">${s.value}</div>
+        <div class="stat-sub">${s.sub}</div>
+      </div>`).join('') +
+    `</div>`;
+
+  // Flow diagram
+  html += `
+  <div class="card">
+    <div class="card-header"><div class="card-title">Interoperability Flow</div><span class="badge badge-green">● Active</span></div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:20px;padding:16px 0;flex-wrap:wrap">
+      <div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:12px 20px;text-align:center">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em">SWS</div>
+        <div style="font-size:12px;font-weight:600;color:#60a5fa;margin-top:3px">Single Window System</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+        <div style="font-size:10px;color:var(--green)">→ Event-Based →</div>
+        <div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:8px;padding:10px 16px;text-align:center">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em">Samanvaya</div>
+          <div style="font-size:11px;font-weight:700;color:var(--purple);margin:2px 0">⬡ UBID Resolver</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-top:4px">
+            ${badge('Normalize','blue')}${badge('Translate','cyan')}${badge('Idempotent','yellow')}
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--accent-cyan)">← Polling-Based ←</div>
+      </div>
+      <div style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.3);border-radius:8px;padding:12px 20px;text-align:center">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em">FDS</div>
+        <div style="font-size:12px;font-weight:600;color:#22d3ee;margin-top:3px">Factories Dept. System</div>
+      </div>
+    </div>
+  </div>`;
+
+  // Recent propagations
+  html += `<div class="card">
+    <div class="card-header">
+      <div class="card-title">Recent Propagations</div>
+      <button class="btn btn-secondary" onclick="showPage('audit')" style="font-size:10px;padding:4px 10px">View All →</button>
+    </div>
+    <div class="timeline">`;
+
+  if (!Array.isArray(recentAudit) || recentAudit.length === 0) {
+    html += `<div class="empty">No propagations yet. Use the API Tester to create records.</div>`;
+  } else {
+    html += recentAudit.map(e => {
+      const cls = e.conflict_flag ? 'conflict' : (e.status === 'success' ? 'success' : 'failed');
+      const icon = e.conflict_flag ? '⚠' : (e.status === 'success' ? '✓' : '✗');
+      const changed = Array.isArray(e.changed_fields) && e.changed_fields.length
+        ? `Changed: ${e.changed_fields.join(', ')}` : 'No field diff';
+      return `<div class="timeline-item">
+        <div class="tl-dot ${cls}">${icon}</div>
+        <div class="tl-body">
+          <div class="tl-title">
+            <span class="flow-line">
+              <span class="flow-sys ${e.source_system}">${e.source_system.toUpperCase()}</span>
+              <span class="flow-arrow">→</span>
+              <span class="flow-sys ${e.target_system}">${e.target_system.toUpperCase()}</span>
+            </span>
+            ${badge(e.action_type,'blue')} ${statusBadge(e.status)}
+            ${e.conflict_flag ? badge('⚠ Conflict','yellow') : ''}
+          </div>
+          <div class="tl-sub">UBID: ${shortUbid(e.ubid)} &nbsp;|&nbsp; ${changed}</div>
+        </div>
+        <div class="tl-time">${fmtTime(e.created_at)}</div>
+      </div>`;
+    }).join('');
+  }
+  html += `</div></div>`;
+
+  if (currentPage === 'dashboard') render(html);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAGE: Compare — side-by-side, GREEN match / RED diff
+// ═══════════════════════════════════════════════════════════════════════════
+async function compare() {
+  render(`<div class="loading"><div class="spinner"></div>Loading comparisons…</div>`);
+  const r = await apiFetch('/compare');
+  const data = r.data;
+
+  let html = `
+  <div class="section-header">
+    <div><div class="section-title">Side-by-Side Comparison</div>
+    <div class="section-sub">SWS ↔ FDS — green = match, red = mismatch</div></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      ${badge('● Synced','green')} ${badge('● Out of Sync','red')} ${badge('◐ Partial','yellow')}
+      <button class="btn btn-secondary" style="font-size:10px;padding:4px 10px" onclick="compare()">↻ Refresh</button>
+    </div>
+  </div>
+  <div class="compare-grid">`;
+
+  if (!Array.isArray(data) || data.length === 0) {
+    html += `<div class="empty">No records found. Submit a SWS or FDS update via the API Tester.</div>`;
+  } else {
+    const fieldPairs = [
+      { swsKey:'business_legal_name',       fdsKey:'enterprise_name',  swsLabel:'Business Legal Name', fdsLabel:'Enterprise Name'  },
+      { swsKey:'registered_address',         fdsKey:'factory_address',  swsLabel:'Registered Address',  fdsLabel:'Factory Address'  },
+      { swsKey:'authorized_signatory_name',  fdsKey:'owner_name',       swsLabel:'Authorized Signatory',fdsLabel:'Owner Name'       },
+      { swsKey:'business_type',              fdsKey:'license_type',     swsLabel:'Business Type',       fdsLabel:'License Type'     },
+    ];
+
+    html += data.map(row => {
+      const sws = row.sws || {};
+      const fds = row.fds || {};
+      const diffs = row.differences || [];
+
+      const swsFields = fieldPairs.map(fp => {
+        const isDiff = diffs.some(d => d.includes(fp.swsKey));
+        const cls = sws[fp.swsKey] ? (isDiff ? 'diff' : 'match') : '';
+        return `<div class="field-row">
+          <div class="field-label">${fp.swsLabel}</div>
+          <div class="field-value ${cls}">${sws[fp.swsKey] || '—'}</div>
+        </div>`;
+      }).join('');
+
+      const fdsFields = fieldPairs.map(fp => {
+        const isDiff = diffs.some(d => d.includes(fp.fdsKey));
+        const cls = fds[fp.fdsKey] ? (isDiff ? 'diff' : 'match') : '';
+        return `<div class="field-row">
+          <div class="field-label">${fp.fdsLabel}</div>
+          <div class="field-value ${cls}">${fds[fp.fdsKey] || '—'}</div>
+        </div>`;
+      }).join('');
+
+      return `<div class="compare-row">
+        <div class="compare-row-header">
+          <div>
+            <span class="compare-ubid">UBID: ${row.ubid}</span>
+            <span style="margin-left:10px">${syncBadge(row.sync_status)}</span>
+          </div>
+          ${diffs.length ? `<span style="font-size:10px;color:var(--red)">⚠ ${diffs.length} field(s) differ</span>` : `<span style="font-size:10px;color:var(--green)">✓ All fields match</span>`}
+        </div>
+        <div class="compare-body">
+          <div class="compare-col sws">
+            <div class="compare-col-header">◈ SWS – Single Window System</div>
+            ${row.sws ? swsFields : '<div style="color:var(--muted);font-size:11px">No SWS record</div>'}
+            ${sws.last_updated_at ? `<div style="font-size:9px;color:var(--muted);margin-top:6px">Last updated: ${fmtTime(sws.last_updated_at)}</div>` : ''}
+          </div>
+          <div class="compare-col fds">
+            <div class="compare-col-header">◉ FDS – Factories Dept. System</div>
+            ${row.fds ? fdsFields : '<div style="color:var(--muted);font-size:11px">No FDS record</div>'}
+            ${fds.last_modified_at ? `<div style="font-size:9px;color:var(--muted);margin-top:6px">Last modified: ${fmtTime(fds.last_modified_at)}</div>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  html += `</div>`;
+  render(html);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAGE: SWS Records
+// ═══════════════════════════════════════════════════════════════════════════
+async function sws() {
+  render(`<div class="loading"><div class="spinner"></div>Loading SWS records…</div>`);
+  const r = await apiFetch('/sws/all');
+  const data = Array.isArray(r.data) ? r.data : [];
+
+  let html = `
+  <div class="section-header">
+    <div><div class="section-title">SWS Records</div><div class="section-sub">${data.length} record(s) — direct from database</div></div>
+    <button class="btn btn-primary" onclick="showPage('tester')">+ Submit Update</button>
+  </div>
+  <div class="card"><div class="table-wrap"><table>
+  <thead><tr>
+    <th>Application ID</th><th>Business Name</th><th>Address</th>
+    <th>Signatory</th><th>Type</th><th>UBID</th><th>Last Updated</th>
+  </tr></thead><tbody>`;
+
+  if (data.length === 0) {
+    html += `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No SWS records yet.</td></tr>`;
+  } else {
+    html += data.map(r => `<tr>
+      <td>${badge(r.sws_application_id,'blue')}</td>
+      <td style="font-size:12px">${r.business_legal_name}</td>
+      <td class="truncate" title="${r.registered_address}">${r.registered_address}</td>
+      <td>${r.authorized_signatory_name}</td>
+      <td>${badge(r.business_type,'cyan')}</td>
+      <td style="font-size:9px;font-family:var(--font-mono)">${shortUbid(r.ubid)}</td>
+      <td style="font-size:11px">${fmtTime(r.last_updated_at)}</td>
+    </tr>`).join('');
+  }
+  html += `</tbody></table></div></div>`;
+  render(html);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAGE: FDS Records
+// ═══════════════════════════════════════════════════════════════════════════
+async function fds() {
+  render(`<div class="loading"><div class="spinner"></div>Loading FDS records…</div>`);
+  const r = await apiFetch('/fds/all');
+  const data = Array.isArray(r.data) ? r.data : [];
+
+  let html = `
+  <div class="section-header">
+    <div><div class="section-title">FDS Records</div><div class="section-sub">${data.length} record(s) — direct from database</div></div>
+    <button class="btn btn-primary" onclick="showPage('tester')">+ Submit Update</button>
+  </div>
+  <div class="card"><div class="table-wrap"><table>
+  <thead><tr>
+    <th>License ID</th><th>Enterprise Name</th><th>Factory Address</th>
+    <th>Owner</th><th>License Type</th><th>UBID</th><th>Last Modified</th>
+  </tr></thead><tbody>`;
+
+  if (data.length === 0) {
+    html += `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No FDS records yet.</td></tr>`;
+  } else {
+    html += data.map(r => `<tr>
+      <td>${badge(r.factory_license_id,'cyan')}</td>
+      <td style="font-size:12px">${r.enterprise_name}</td>
+      <td class="truncate" title="${r.factory_address}">${r.factory_address}</td>
+      <td>${r.owner_name}</td>
+      <td>${badge(r.license_type,'blue')}</td>
+      <td style="font-size:9px;font-family:var(--font-mono)">${shortUbid(r.ubid)}</td>
+      <td style="font-size:11px">${fmtTime(r.last_modified_at)}</td>
+    </tr>`).join('');
+  }
+  html += `</tbody></table></div></div>`;
+  render(html);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAGE: Audit Timeline
+// ═══════════════════════════════════════════════════════════════════════════
+async function audit() {
+  render(`<div class="loading"><div class="spinner"></div>Loading audit log…</div>`);
+  const r = await apiFetch('/audit?limit=100');
+  const data = Array.isArray(r.data) ? r.data : [];
+
+  let html = `
+  <div class="section-header">
+    <div><div class="section-title">Audit Timeline</div><div class="section-sub">${data.length} propagation entries</div></div>
+    <button class="btn btn-secondary" style="font-size:10px;padding:4px 10px" onclick="audit()">↻ Refresh</button>
+  </div>
+  <div class="card"><div class="timeline">`;
+
+  if (data.length === 0) {
+    html += `<div class="empty">No audit entries yet.</div>`;
+  } else {
+    html += data.map(e => {
+      const cls = e.conflict_flag ? 'conflict' : (e.status === 'success' ? 'success' : 'failed');
+      const icon = e.conflict_flag ? '⚠' : (e.status === 'success' ? '✓' : '✗');
+      const changed = Array.isArray(e.changed_fields) && e.changed_fields.length
+        ? `Changed: <strong>${e.changed_fields.join(', ')}</strong>` : 'No field changes';
+      return `<div class="timeline-item">
+        <div class="tl-dot ${cls}">${icon}</div>
+        <div class="tl-body">
+          <div class="tl-title">
+            <span class="flow-line">
+              <span class="flow-sys ${e.source_system}">${e.source_system.toUpperCase()}</span>
+              <span class="flow-arrow">→</span>
+              <span class="flow-sys ${e.target_system}">${e.target_system.toUpperCase()}</span>
+            </span>
+            ${badge(e.action_type,'blue')} ${statusBadge(e.status)}
+            ${e.conflict_flag ? badge('⚠ Conflict','yellow') : ''}
+          </div>
+          <div class="tl-sub">UBID: ${e.ubid} &nbsp;|&nbsp; ${changed}</div>
+        </div>
+        <div class="tl-time">${fmtTime(e.created_at)}</div>
+      </div>`;
+    }).join('');
+  }
+  html += `</div></div>`;
+  render(html);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAGE: Conflict Viewer
+// ═══════════════════════════════════════════════════════════════════════════
+async function conflicts() {
+  render(`<div class="loading"><div class="spinner"></div>Loading conflicts…</div>`);
+  const r = await apiFetch('/conflicts');
+  const data = Array.isArray(r.data) ? r.data : [];
+
+  let html = `
+  <div class="section-header">
+    <div><div class="section-title">Conflict Viewer</div><div class="section-sub">${data.length} conflict(s) detected & resolved</div></div>
+  </div>`;
+
+  if (data.length === 0) {
+    html += `<div class="card"><div class="empty">No conflicts recorded. System is operating cleanly.</div></div>`;
+  } else {
+    html += data.map(c => `
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Conflict — ${c.source_system.toUpperCase()}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--font-mono)">${c.ubid}</div>
+          </div>
+          <div style="display:flex;gap:6px">
+            ${badge(c.resolution || 'last_write_wins','yellow')}
+            <span style="font-size:10px;color:var(--muted)">${fmtTime(c.created_at)}</span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:11px">
+          <div>
+            <div style="color:var(--muted);margin-bottom:6px;font-size:10px;text-transform:uppercase">Version A (Existing)</div>
+            <pre style="background:var(--surface2);padding:10px;border-radius:6px;font-size:10px;overflow:auto">${JSON.stringify(c.version_a, null, 2)}</pre>
+          </div>
+          <div>
+            <div style="color:var(--green);margin-bottom:6px;font-size:10px;text-transform:uppercase">Version B → Winner (Incoming)</div>
+            <pre style="background:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.2);padding:10px;border-radius:6px;font-size:10px;overflow:auto">${JSON.stringify(c.version_b, null, 2)}</pre>
+          </div>
+        </div>
+        ${c.reason ? `<div style="margin-top:10px;font-size:11px;color:var(--muted)">Reason: ${c.reason}</div>` : ''}
+      </div>`).join('');
+  }
+  render(html);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAGE: API Tester
+// ═══════════════════════════════════════════════════════════════════════════
+function tester() {
+  const html = `
+  <div class="section-header">
+    <div><div class="section-title">API Tester</div><div class="section-sub">Submit SWS or FDS records — propagation is automatic</div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+    <!-- SWS Form -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">◈ Submit SWS Update</div></div>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Application ID (e.g. SWS-2024-001)</label>
+          <input id="sws_id" placeholder="SWS-2024-001" value="SWS-2024-001" />
+        </div>
+        <div class="form-group full">
+          <label>Business Legal Name</label>
+          <input id="sws_name" placeholder="Tata Steel Limited" value="Tata Steel Limited" />
+        </div>
+        <div class="form-group full">
+          <label>Registered Address</label>
+          <input id="sws_addr" placeholder="Bombay House, Mumbai" value="Bombay House, 24 Homi Mody Street, Mumbai 400001" />
+        </div>
+        <div class="form-group">
+          <label>Authorized Signatory</label>
+          <input id="sws_sign" placeholder="Name" value="Natarajan Chandrasekaran" />
+        </div>
+        <div class="form-group">
+          <label>Business Type</label>
+          <input id="sws_type" placeholder="Manufacturing" value="Manufacturing" />
+        </div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button class="btn btn-primary" id="sws-btn" onclick="submitSWS()">▷ Submit SWS</button>
+        <button class="btn btn-secondary" onclick="fillSWSRandom()">⚄ Random</button>
+      </div>
+      <div id="sws-resp"></div>
+    </div>
+
+    <!-- FDS Form -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">◉ Submit FDS Update</div></div>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Factory License ID (e.g. FDS-FL-001)</label>
+          <input id="fds_id" placeholder="FDS-FL-001" value="FDS-FL-001" />
+        </div>
+        <div class="form-group full">
+          <label>Enterprise Name</label>
+          <input id="fds_name" placeholder="Tata Steel Limited" value="Tata Steel Limited" />
+        </div>
+        <div class="form-group full">
+          <label>Factory Address</label>
+          <input id="fds_addr" placeholder="Factory Address" value="Bombay House, 24 Homi Mody Street, Mumbai 400001" />
+        </div>
+        <div class="form-group">
+          <label>Owner Name</label>
+          <input id="fds_owner" placeholder="Owner" value="Natarajan Chandrasekaran" />
+        </div>
+        <div class="form-group">
+          <label>License Type</label>
+          <input id="fds_ltype" placeholder="Heavy Industry" value="Heavy Industry" />
+        </div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button class="btn btn-primary" id="fds-btn" onclick="submitFDS()">▷ Submit FDS</button>
+        <button class="btn btn-secondary" onclick="fillFDSRandom()">⚄ Random</button>
+      </div>
+      <div id="fds-resp"></div>
+    </div>
+
+  </div>
+
+  <!-- UBID Resolver -->
+  <div class="card" style="margin-top:0">
+    <div class="card-header"><div class="card-title">⬡ UBID Resolver — Test Normalization</div></div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
+      Try "SWS_123", "sws-123", " SWS 123 " — all should resolve to the same UBID.
+    </p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div class="form-group">
+        <label>System Name</label>
+        <input id="ubid_sys" placeholder="sws" value="sws" style="width:120px" />
+      </div>
+      <div class="form-group">
+        <label>System ID (any format)</label>
+        <input id="ubid_id" placeholder="SWS_123" value="SWS_123" style="width:200px" />
+      </div>
+      <button class="btn btn-secondary" onclick="resolveUBID()">Resolve UBID</button>
+    </div>
+    <div id="ubid-resp"></div>
+  </div>`;
+
+  render(html);
+}
+
+async function submitSWS() {
+  const btn = document.getElementById('sws-btn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  const body = {
+    sws_application_id:      document.getElementById('sws_id').value.trim(),
+    business_legal_name:     document.getElementById('sws_name').value.trim(),
+    registered_address:      document.getElementById('sws_addr').value.trim(),
+    authorized_signatory_name: document.getElementById('sws_sign').value.trim(),
+    business_type:           document.getElementById('sws_type').value.trim(),
+  };
+  const r = await apiFetch('/sws/update', { method:'POST', body: JSON.stringify(body) });
+  btn.disabled = false; btn.textContent = '▷ Submit SWS';
+  const box = document.getElementById('sws-resp');
+  if (r.ok) {
+    box.innerHTML = `<div class="resp-box ok">${JSON.stringify(r.data, null, 2)}</div>`;
+    showToast('SWS record saved → propagated to FDS ✓');
+  } else {
+    box.innerHTML = `<div class="resp-box err">${JSON.stringify(r.data, null, 2)}</div>`;
+    showToast('SWS submit failed', 'error');
+  }
+}
+
+async function submitFDS() {
+  const btn = document.getElementById('fds-btn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  const body = {
+    factory_license_id: document.getElementById('fds_id').value.trim(),
+    enterprise_name:    document.getElementById('fds_name').value.trim(),
+    factory_address:    document.getElementById('fds_addr').value.trim(),
+    owner_name:         document.getElementById('fds_owner').value.trim(),
+    license_type:       document.getElementById('fds_ltype').value.trim(),
+  };
+  const r = await apiFetch('/fds/update', { method:'POST', body: JSON.stringify(body) });
+  btn.disabled = false; btn.textContent = '▷ Submit FDS';
+  const box = document.getElementById('fds-resp');
+  if (r.ok) {
+    box.innerHTML = `<div class="resp-box ok">${JSON.stringify(r.data, null, 2)}</div>`;
+    showToast('FDS record saved → propagated to SWS ✓');
+  } else {
+    box.innerHTML = `<div class="resp-box err">${JSON.stringify(r.data, null, 2)}</div>`;
+    showToast('FDS submit failed', 'error');
+  }
+}
+
+async function resolveUBID() {
+  const sys = document.getElementById('ubid_sys').value.trim();
+  const sid = document.getElementById('ubid_id').value.trim();
+  const r = await apiFetch('/ubid/resolve', { method:'POST', body: JSON.stringify({ system_name: sys, system_id: sid }) });
+  const box = document.getElementById('ubid-resp');
+  box.innerHTML = `<div class="resp-box ${r.ok ? 'ok' : 'err'}">${JSON.stringify(r.data, null, 2)}</div>`;
+}
+
+const randNames = ['Infosys Ltd','Wipro Limited','HCL Technologies','L&T Manufacturing','BHEL Enterprise','Reliance Industries'];
+const randAddr  = ['MG Road, Bengaluru 560001','Nariman Point, Mumbai 400021','Connaught Place, New Delhi 110001','Sector 62, Noida 201301'];
+const randPeople= ['Rajesh Kumar','Sunita Rao','Arvind Mehta','Priya Nair','Vikram Singh'];
+
+function fillSWSRandom() {
+  const n = Math.floor(Math.random()*9000+1000);
+  document.getElementById('sws_id').value   = `SWS-${n}`;
+  document.getElementById('sws_name').value = randNames[Math.floor(Math.random()*randNames.length)];
+  document.getElementById('sws_addr').value = randAddr[Math.floor(Math.random()*randAddr.length)];
+  document.getElementById('sws_sign').value = randPeople[Math.floor(Math.random()*randPeople.length)];
+  document.getElementById('sws_type').value = ['Manufacturing','Services','Retail','PSU'][Math.floor(Math.random()*4)];
+}
+
+function fillFDSRandom() {
+  const n = Math.floor(Math.random()*9000+1000);
+  document.getElementById('fds_id').value    = `FDS-FL-${n}`;
+  document.getElementById('fds_name').value  = randNames[Math.floor(Math.random()*randNames.length)];
+  document.getElementById('fds_addr').value  = randAddr[Math.floor(Math.random()*randAddr.length)];
+  document.getElementById('fds_owner').value = randPeople[Math.floor(Math.random()*randPeople.length)];
+  document.getElementById('fds_ltype').value = ['Heavy Industry','Textile','Chemical','Electronics'][Math.floor(Math.random()*4)];
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+showPage('dashboard');
+</script>
+</body>
+</html>
