@@ -199,7 +199,9 @@
 </div>
 
 <script>
-const API = 'https://your-backend.onrender.com';
+const API = window.location.hostname === 'localhost'
+  ? 'http://localhost:8000'
+  : 'https://your-backend.onrender.com';
 let pollingTimer = null;
 let currentPage = 'dashboard';
 
