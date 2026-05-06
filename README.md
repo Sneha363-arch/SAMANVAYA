@@ -1,141 +1,134 @@
-# Samanvaya v2 — Fixed
+# Samanvaya
 
-Government Interoperability Layer — Bidirectional Sync between SWS and FDS.
-
-## What was fixed
-
-| # | Issue | Fix |
-|---|-------|-----|
-| 1 | Fake/seeded data in API responses | Removed — APIs return only DB records |
-| 2 | UBID normalization broken | `normalize_id()` strips spaces, `_`, `-`, lowercases before every lookup |
-| 3 | Change detection missing | Snapshot-based diff; skips write if payload unchanged |
-| 4 | SWS→FDS propagation only updated, never created | Now CREATES FDS record if none exists (and vice versa) |
-| 5 | Schema translation scattered | Consolidated in `services/schema_mapper.py` |
-| 6 | Frontend not parsing JSON | Pure `fetch()` + `async/await` throughout |
-| 7 | UI didn't auto-refresh | Dashboard polls every 5 s; manual refresh buttons on all pages |
-| 8 | Duplicate UBIDs possible | `UNIQUE(system_name, normalized_system_id)` constraint in DB |
-| 9 | Audit log missing `changed_fields` | Added column + populated on every propagation |
-| 10 | Stats hardcoded | All stat cards driven from `/stats` API |
-| 11 | Compare UI no colours | Green = match, Red = mismatch on every field |
-| 12 | CORS blocked file:// frontend | `allow_origins=["*"]` in development |
+A full-stack system that enables seamless data synchronization between two independent government systems. The application ensures consistent data flow, real-time updates, and visibility across systems through a unified interface.
 
 ---
 
-## Quick Start (Docker — recommended)
+## 🚀 Tech Stack
 
-```bash
-# 1. Clone / unzip into a folder
-cd samanvaya_fixed
+* **Backend:** FastAPI (Python)
+* **Database:** PostgreSQL
+* **Frontend:** HTML, CSS, JavaScript
+* **Containerization:** Docker & Docker Compose
 
-# 2. Start everything
+---
+
+## 📁 Project Structure
+
+```
+project-root/
+│
+├── backend/
+├── frontend/
+├── docker-compose.yml
+├── .env.example
+├── README.md
+```
+
+---
+
+## ⚙️ Setup & Run (Docker — Recommended)
+
+### 1. Clone the repository
+
+```
+git clone <your-repo-url>
+cd <project-folder>
+```
+
+---
+
+### 2. Create environment file
+
+Copy the example file:
+
+```
+cp .env.example .env
+```
+
+Update values if required.
+
+---
+
+### 3. Start the application
+
+```
 docker compose up --build
-
-# 3. Open the dashboard
-open http://localhost:3000          # Frontend (nginx)
-open http://localhost:8000/docs     # Swagger UI
 ```
 
 ---
 
-## Quick Start (Local — no Docker)
+### 4. Access the application
 
-### Prerequisites
-- Python 3.11+
-- PostgreSQL 15 running locally
+* **Frontend:** http://localhost:3000
+* **Backend API:** http://localhost:8000
+* **API Docs:** http://localhost:8000/docs
 
-### 1. Create the database
+---
 
-```sql
--- Run in psql
-CREATE DATABASE samanvaya;
-CREATE USER samanvaya_user WITH PASSWORD '1234';
-GRANT ALL PRIVILEGES ON DATABASE samanvaya TO samanvaya_user;
+## 🛠️ Run Locally (Without Docker)
+
+### 1. Setup database
+
+Ensure PostgreSQL is running and create a database.
+
+---
+
+### 2. Run backend
+
 ```
-
-### 2. Install dependencies & run backend
-
-```bash
 cd backend
 pip install -r requirements.txt
-
-# Tables are auto-created on startup
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 3. Open the frontend
+---
 
-Simply open `frontend/index.html` in your browser:
+### 3. Run frontend
 
-```bash
-open frontend/index.html
-# or on Linux:
-xdg-open frontend/index.html
+Open the frontend directly in browser:
+
 ```
-
-The frontend calls `http://localhost:8000` directly via `fetch()`.
+frontend/index.html
+```
 
 ---
 
-## Test the full flow
+## 🧪 Basic Testing
 
-### 1. Create a SWS record (auto-propagates to FDS)
+### Create a record
 
-```bash
+```
 curl -X POST http://localhost:8000/sws/update \
   -H "Content-Type: application/json" \
   -d '{
-    "sws_application_id": "SWS-2024-001",
-    "business_legal_name": "Tata Steel Limited",
-    "registered_address": "Bombay House, Mumbai 400001",
-    "authorized_signatory_name": "N. Chandrasekaran",
+    "sws_application_id": "SWS-001",
+    "business_legal_name": "Example Company",
+    "registered_address": "Sample Address",
+    "authorized_signatory_name": "John Doe",
     "business_type": "Manufacturing"
   }'
 ```
 
-→ Check FDS: `curl http://localhost:8000/fds/all`
+---
 
-### 2. Test UBID normalization — all three should return the SAME ubid
+### Fetch records
 
-```bash
-curl -X POST http://localhost:8000/ubid/resolve \
-  -H "Content-Type: application/json" \
-  -d '{"system_name": "sws", "system_id": "SWS_2024_001"}'
-
-curl -X POST http://localhost:8000/ubid/resolve \
-  -H "Content-Type: application/json" \
-  -d '{"system_name": "sws", "system_id": "sws-2024-001"}'
-
-curl -X POST http://localhost:8000/ubid/resolve \
-  -H "Content-Type: application/json" \
-  -d '{"system_name": "SWS", "system_id": " SWS 2024 001 "}'
 ```
-
-### 3. Check audit trail
-
-```bash
-curl http://localhost:8000/audit
-```
-
-### 4. Side-by-side comparison
-
-```bash
-curl http://localhost:8000/compare
+curl http://localhost:8000/sws/all
+curl http://localhost:8000/fds/all
 ```
 
 ---
 
-## API Reference
+## 📌 Notes
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/sws/update` | Create/update SWS record → propagate to FDS |
-| POST | `/fds/update` | Create/update FDS record → propagate to SWS |
-| GET | `/sws/all` | All SWS records (DB only) |
-| GET | `/fds/all` | All FDS records (DB only) |
-| POST | `/ubid/resolve` | Resolve normalized UBID |
-| GET | `/compare` | All side-by-side comparisons |
-| GET | `/compare/{ubid}` | Single UBID comparison |
-| GET | `/audit` | Full audit timeline |
-| GET | `/conflicts` | All conflict records |
-| GET | `/stats` | Dashboard stats |
-| GET | `/docs` | Swagger UI |
+* Environment files (`.env`, `.env.local`) are not included in the repository
+* Use `.env.example` as a reference
+* Ensure Docker is installed before running containers
+
+---
+
+## 📄 License
+
+This project is for educational and demonstration purposes.
